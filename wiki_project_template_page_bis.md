@@ -4,7 +4,7 @@
 
 **Project Description**
 
-The objective of this project is to prepare data for datamarts, useful for visualizing [DATA_ELEMENTS] at various organizational levels. The project is divided into two parts: loading the repository and completing the repository with entity codes from the fact tables. Project execution is automated through a scenario.
+The objective of this project is to prepare data for deployment, useful for visualizing [DATA_ELEMENTS] at various organizational levels. The project is divided into two parts: loading the repository and completing the repository with entity codes from the fact tables. Project execution is automated through a scenario.
 
 **Instructions for Recovery**
 
