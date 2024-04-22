@@ -1,0 +1,51 @@
+def verify_build_and_clean_scenario(project):
+    ''' Verify that exists a scenario with a build step and a clean step
+
+        Parameters:
+        -----------
+        project: DSS Project
+            DSS project
+
+        Returns:
+        --------
+        scenario_validation: dict
+            Contains status and reason for both build and clean steps.
+    '''
+    scenarios_list = project.list_scenarios()
+    scenarios_name = [x['id'] for x in scenarios_list]
+    
+    has_build = False
+    has_clean = False
+    
+    reasons = []
+
+    for sc in scenarios_name:
+        # Get the steps in the current scenario
+        try:
+            steps_scenario = project.get_scenario(sc).get_settings().get_raw().get('params', {}).get('steps', [])
+            
+            # Iterate over steps_scenario
+            for step in steps_scenario:
+                if not has_build and step.get('type') == 'build_flowitem' and step.get('params', {}).get('jobType') == 'RECURSIVE_BUILD':
+                    has_build = True
+                    reasons.append(f"Build step exists in scenario '{sc}'.")
+
+                if not has_clean and step.get('type') == 'runnable' and step.get('params', {}).get('runnableType') == 'pyrunnable_clear-intermediate-datasets_clear_int_datasets':
+                    has_clean = True
+                    reasons.append(f"Clean step exists in scenario '{sc}'.")
+                    
+        except Exception as e:
+            # Logging the exception could be a good idea here, replace `print` with logging if available
+            print(f"An error occurred while processing scenario '{sc}': {e}")
+            continue
+
+    scenario_validation = {
+        'build_status': {'status': 'OK' if has_build else 'KO', 'reason': 'Build step exists.' if has_build else 'Build step not found in any scenario.'},
+        'clean_status': {'status': 'OK' if has_clean else 'KO', 'reason': 'Clean step exists.' if has_clean else 'Clean step not found in any scenario.'}
+    }
+    
+    # If verbose reasons are desired, add them to the dict
+    if reasons:
+        scenario_validation['details'] = reasons
+
+    return scenario_validation
