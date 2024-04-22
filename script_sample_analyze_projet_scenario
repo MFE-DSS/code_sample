@@ -1,5 +1,6 @@
-def verify_build_and_clean_scenario(project):
-    ''' Verify that exists a scenario with a build step and a clean step
+def verify_scenario_steps_and_configuration(project):
+    ''' Verify the existence of build, clean, compute metrics, run checks steps,
+        and check for scenario triggers and reporters.
 
         Parameters:
         -----------
@@ -9,43 +10,55 @@ def verify_build_and_clean_scenario(project):
         Returns:
         --------
         scenario_validation: dict
-            Contains status and reason for both build and clean steps.
+            Contains validation status and reason for required steps, triggers, and reporters.
     '''
     scenarios_list = project.list_scenarios()
-    scenarios_name = [x['id'] for x in scenarios_list]
-    
-    has_build = False
-    has_clean = False
-    
-    reasons = []
-
-    for sc in scenarios_name:
-        # Get the steps in the current scenario
-        try:
-            steps_scenario = project.get_scenario(sc).get_settings().get_raw().get('params', {}).get('steps', [])
-            
-            # Iterate over steps_scenario
-            for step in steps_scenario:
-                if not has_build and step.get('type') == 'build_flowitem' and step.get('params', {}).get('jobType') == 'RECURSIVE_BUILD':
-                    has_build = True
-                    reasons.append(f"Build step exists in scenario '{sc}'.")
-
-                if not has_clean and step.get('type') == 'runnable' and step.get('params', {}).get('runnableType') == 'pyrunnable_clear-intermediate-datasets_clear_int_datasets':
-                    has_clean = True
-                    reasons.append(f"Clean step exists in scenario '{sc}'.")
-                    
-        except Exception as e:
-            # Logging the exception could be a good idea here, replace `print` with logging if available
-            print(f"An error occurred while processing scenario '{sc}': {e}")
-            continue
-
+    #you need to define every validation criteria you want to evaluate
     scenario_validation = {
-        'build_status': {'status': 'OK' if has_build else 'KO', 'reason': 'Build step exists.' if has_build else 'Build step not found in any scenario.'},
-        'clean_status': {'status': 'OK' if has_clean else 'KO', 'reason': 'Clean step exists.' if has_clean else 'Clean step not found in any scenario.'}
+        'build_steps': [],
+        'clean_steps': [],
+        'compute_metrics_steps': [],
+        'run_checks_steps': [],
+        'triggers': [],
+        'reporters': []
     }
     
-    # If verbose reasons are desired, add them to the dict
-    if reasons:
-        scenario_validation['details'] = reasons
+    for scenario in scenarios_list:
+        sc_id = scenario['id']
+        scenario_obj = project.get_scenario(sc_id)
+        settings = scenario_obj.get_settings().get_raw()
+        steps = settings.get('params', {}).get('steps', [])
+        
+        # Check for required steps
+        for step in steps:
+            if step.get('type') == 'build_flowitem':
+                scenario_validation['build_steps'].append(sc_id)
+
+            if step.get('type') == 'runnable' and 'pyrunnable_clear-intermediate-datasets' in step.get('params', {}).get('runnableType', ''):
+                scenario_validation['clean_steps'].append(sc_id)
+
+            if step.get('type') == 'compute_metrics':
+                scenario_validation['compute_metrics_steps'].append(sc_id)
+
+            if step.get('type') == 'run_checks':
+                scenario_validation['run_checks_steps'].append(sc_id)
+
+        # Examine triggers
+        if 'triggers' in settings:
+            scenario_validation['triggers'].append({'scenario': sc_id, 'triggers': settings['triggers']})
+        
+        # Examine reporters
+        if 'reporters' in settings:
+            scenario_validation['reporters'].append({'scenario': sc_id, 'reporters': settings['reporters']})
+
+
+    # Determine status and reason based on findings
+    for step_type, step_list in scenario_validation.items():
+        if step_type in ['build_steps', 'clean_steps', 'compute_metrics_steps', 'run_checks_steps']:
+            status_key = f'{step_type[:-5]}_status'  # Removes '_steps' and appends '_status'
+            if not step_list:
+                scenario_validation[status_key] = {'status': 'KO', 'reason': f'No {step_type[:-5].replace("_", " ")} step found in any scenario.'}
+            else:
+                scenario_validation[status_key] = {'status': 'OK', 'reason': f'{step_type[:-5].replace("_", " ")} step found in scenarios: {step_list}'}
 
     return scenario_validation
