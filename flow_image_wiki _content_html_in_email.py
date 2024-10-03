@@ -53,4 +53,4 @@ email_content = f"""
 </body>
 </html>
 """
-# Example of sending email : use DSS's scenarios object like Reporter or scenario step.
+# Example of sending email : use DSS's scenarios object like Reporter or scenario send email step.
